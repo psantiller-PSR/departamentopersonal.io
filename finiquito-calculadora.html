@@ -1,0 +1,210 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Calculadora de Finiquito (Chile)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+  <div id="root"></div>
+
+  <!-- React, ReactDOM y Babel (para transpilar JSX en el navegador) -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    function FiniquitoCL() {
+      const [inputs, setInputs] = useState({
+        nombre: "",
+        rut: "",
+        fechaInicio: "",
+        fechaAviso: "",
+        fechaTermino: "",
+        anios: 0,
+        meses: 0,
+        dias: 0,
+        diasVacTomados: 0,
+        diasVacPendientesManuales: "",
+        haberes: [
+          { nombre: "", monto: 0 },
+          { nombre: "", monto: 0 },
+          { nombre: "", monto: 0 },
+          { nombre: "", monto: 0 },
+          { nombre: "", monto: 0 },
+        ],
+        valorUF: 38000,
+        pagaAvisoPrevio: false,
+        pagaAniosServicio: false,
+        diasTrabajadosMesFinal: 0,
+        totalHaberesMes: 0,
+        observaciones: "",
+      });
+
+      const set = (k, v) => setInputs((s) => ({ ...s, [k]: v }));
+      const updateHaber = (idx, field, value) => {
+        setInputs((s) => {
+          const next = s.haberes.map((h, i) => (i === idx ? { ...h, [field]: field === "monto" ? parseFloat(value || "0") : value } : h));
+          return { ...s, haberes: next };
+        });
+      };
+      const addHaber = () => setInputs((s) => ({ ...s, haberes: [...s.haberes, { nombre: "", monto: 0 }] }));
+      const removeHaber = (idx) => setInputs((s) => ({ ...s, haberes: s.haberes.filter((_, i) => i !== idx) }));
+
+      const toNumber = (x) => (isNaN(parseFloat(String(x))) ? 0 : parseFloat(String(x)));
+
+      const vacPendientes = inputs.diasVacPendientesManuales !== "" ? toNumber(inputs.diasVacPendientesManuales) : 0;
+
+      const baseHaberes = useMemo(() => {
+        return inputs.haberes.reduce((acc, h) => acc + toNumber(h.monto), 0);
+      }, [inputs.haberes]);
+
+      const remuneracionPendiente = useMemo(() => {
+        const hab = toNumber(inputs.totalHaberesMes);
+        const diasMes = toNumber(inputs.diasTrabajadosMesFinal);
+        return (hab / 30) * diasMes;
+      }, [inputs.totalHaberesMes, inputs.diasTrabajadosMesFinal]);
+
+      const tope90UF = 90 * toNumber(inputs.valorUF);
+      const indemAvisoPrevio = inputs.pagaAvisoPrevio ? Math.min(baseHaberes, tope90UF) : 0;
+      const indemAniosServicio = inputs.pagaAniosServicio ? Math.min(baseHaberes * inputs.anios, tope90UF * inputs.anios) : 0;
+      const indemFeriadoProporcional = (baseHaberes / 30) * vacPendientes;
+
+      const totalFiniquito = remuneracionPendiente + indemAvisoPrevio + indemAniosServicio + indemFeriadoProporcional;
+
+      const currency = (n) => n.toLocaleString("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 });
+
+      const Field = ({ label, children }) => (
+        <div className="grid grid-cols-12 items-center gap-2 py-1">
+          <div className="col-span-6 text-sm text-gray-700">{label}</div>
+          <div className="col-span-6">{children}</div>
+        </div>
+      );
+
+      return (
+        <div className="p-6 max-w-6xl mx-auto">
+          <h1 className="text-2xl font-semibold mb-4">Calculadora de Finiquito (Chile)</h1>
+
+          <div className="rounded-2xl border p-4 shadow-sm mb-6 bg-white">
+            <h2 className="font-medium mb-2">Datos del trabajador</h2>
+            <Field label="Nombre">
+              <input type="text" className="w-full rounded-xl border px-3 py-2" value={inputs.nombre} onChange={(e) => set("nombre", e.target.value)} />
+            </Field>
+            <Field label="RUT">
+              <input type="text" className="w-full rounded-xl border px-3 py-2" value={inputs.rut} onChange={(e) => set("rut", e.target.value)} />
+            </Field>
+            <Field label="Fecha de ingreso">
+              <input type="date" className="w-full rounded-xl border px-3 py-2" value={inputs.fechaInicio} onChange={(e) => set("fechaInicio", e.target.value)} />
+            </Field>
+            <Field label="Fecha de término">
+              <input type="date" className="w-full rounded-xl border px-3 py-2" value={inputs.fechaTermino} onChange={(e) => set("fechaTermino", e.target.value)} />
+            </Field>
+            <Field label="Observaciones">
+              <textarea className="w-full rounded-xl border px-3 py-2" value={inputs.observaciones} onChange={(e) => set("observaciones", e.target.value)} />
+            </Field>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                <h2 className="font-medium mb-2">Vacaciones</h2>
+                <Field label="Días pendientes">
+                  <input type="number" className="w-full rounded-xl border px-3 py-2" value={inputs.diasVacPendientesManuales} onChange={(e) => set("diasVacPendientesManuales", e.target.value)} />
+                </Field>
+                <Field label="Días tomados">
+                  <input type="number" className="w-full rounded-xl border px-3 py-2" value={inputs.diasVacTomados} onChange={(e) => set("diasVacTomados", e.target.value)} />
+                </Field>
+              </div>
+
+              <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="font-medium">Detalle de Haberes</h2>
+                  <button type="button" onClick={addHaber} className="rounded-xl border px-3 py-1 text-sm hover:bg-gray-50">+ Agregar haber</button>
+                </div>
+                <div className="space-y-2">
+                  {inputs.haberes.map((h, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                      <input type="text" placeholder={`Haber ${idx + 1}`} className="col-span-7 rounded-xl border px-3 py-2" value={h.nombre} onChange={(e) => updateHaber(idx, "nombre", e.target.value)} />
+                      <input type="number" placeholder="Monto" className="col-span-4 rounded-xl border px-3 py-2" value={h.monto} onChange={(e) => updateHaber(idx, "monto", e.target.value)} />
+                      <button type="button" className="col-span-1 rounded-xl border px-2 py-2 text-sm hover:bg-gray-50" onClick={() => removeHaber(idx)} title="Eliminar">×</button>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-xs text-gray-600 mt-2">Puedes agregar más filas según necesites. Se suman automáticamente al cálculo.</div>
+              </div>
+
+              <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                <h2 className="font-medium mb-2">Parámetros</h2>
+                <Field label="Valor UF (mes término)">
+                  <input type="number" className="w-full rounded-xl border px-3 py-2" value={inputs.valorUF} onChange={(e) => set("valorUF", e.target.value)} />
+                </Field>
+                <div className="grid grid-cols-1 gap-2 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={inputs.pagaAvisoPrevio} onChange={(e) => set("pagaAvisoPrevio", e.target.checked)} /> Indemnización sustitutiva de aviso previo
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={inputs.pagaAniosServicio} onChange={(e) => set("pagaAniosServicio", e.target.checked)} /> Indemnización por años de servicio
+                  </label>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                <h2 className="font-medium mb-2">Remuneración pendiente</h2>
+                <Field label="Total haberes del mes (último)">
+                  <input type="number" className="w-full rounded-xl border px-3 py-2" value={inputs.totalHaberesMes} onChange={(e) => set("totalHaberesMes", e.target.value)} />
+                </Field>
+                <Field label="Días trabajados del mes (hasta término)">
+                  <input type="number" className="w-full rounded-xl border px-3 py-2" value={inputs.diasTrabajadosMesFinal} onChange={(e) => set("diasTrabajadosMesFinal", e.target.value)} />
+                </Field>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                <h2 className="font-medium mb-3">Resumen</h2>
+                <div className="text-sm grid grid-cols-2 gap-2">
+                  <div>Total Haberes (base)</div>
+                  <div className="text-right">{currency(baseHaberes)}</div>
+                  <div>Vacaciones pendientes (días)</div>
+                  <div className="text-right">{vacPendientes}</div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                <h2 className="font-medium mb-3">Cálculo</h2>
+                <div className="text-sm grid grid-cols-2 gap-2">
+                  <div>Remuneración pendiente</div>
+                  <div className="text-right">{currency(remuneracionPendiente)}</div>
+                  <div>Indem. aviso previo</div>
+                  <div className="text-right">{currency(indemAvisoPrevio)}</div>
+                  <div>Indem. años de servicio</div>
+                  <div className="text-right">{currency(indemAniosServicio)}</div>
+                  <div>Feriado proporcional</div>
+                  <div className="text-right">{currency(indemFeriadoProporcional)}</div>
+                  <div className="font-semibold">TOTAL FINIQUITO</div>
+                  <div className="text-right font-semibold">{currency(totalFiniquito)}</div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border p-4 shadow-sm text-xs text-gray-600 bg-white">
+                <p className="mb-1">Notas:</p>
+                <ul className="list-disc ml-5 space-y-1">
+                  <li>El detalle de haberes es dinámico; ingresa el nombre del haber y su monto. Se suman todos para la base.</li>
+                  <li>Este simulador no aplica descuentos previsionales ni tributación eventual; es referencia bruta.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<FiniquitoCL />);
+  </script>
+</body>
+</html>
