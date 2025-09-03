@@ -1,1 +1,0 @@
-# departamentopersonal.io
